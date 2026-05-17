@@ -1,0 +1,12 @@
+{
+  "options": {
+    "paths": {
+      "root": ""
+    }
+  },
+  "data": {
+    "bbsr": {
+      "mbtiles": "data/bbsr.mbtiles"
+    }
+  }
+}

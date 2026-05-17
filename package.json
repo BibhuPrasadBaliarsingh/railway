@@ -1,0 +1,10 @@
+{
+  "name": "bbsr-map-server",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "npx tileserver-gl --config config.json --port $PORT"
+  },
+  "dependencies": {
+    "tileserver-gl": "^4.0.0"
+  }
+}
