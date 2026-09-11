@@ -7,27 +7,35 @@ const PORT = process.env.PORT || 8080;
 // Use an internal port for tileserver-gl to prevent port collision with main wrapper server
 const TILESERVER_PORT = process.env.TILESERVER_PORT || (parseInt(PORT, 10) + 1);
 
-// Determine configuration and executable for internal tileserver-gl process
-const configPath = path.join(__dirname, 'config.json');
-const cliArgs = fs.existsSync(configPath)
-  ? ['--config', 'config.json', '--port', String(TILESERVER_PORT)]
-  : ['--mbtiles', 'data/bbsr.mbtiles', '--port', String(TILESERVER_PORT)];
+// Locate mbtiles file
+let mbtilesPath = 'data/bbsr.mbtiles';
+if (fs.existsSync('/data/bbsr.mbtiles')) {
+  mbtilesPath = '/data/bbsr.mbtiles';
+} else if (fs.existsSync(path.join(__dirname, 'data', 'bbsr.mbtiles'))) {
+  mbtilesPath = path.join(__dirname, 'data', 'bbsr.mbtiles');
+}
+
+const cliArgs = ['--mbtiles', mbtilesPath, '--port', String(TILESERVER_PORT)];
 
 let tileserverScript = null;
-try {
-  tileserverScript = require.resolve('tileserver-gl/src/main.js');
-} catch (e) {
+if (fs.existsSync('/usr/src/app/src/main.js')) {
+  tileserverScript = '/usr/src/app/src/main.js';
+} else {
   try {
-    tileserverScript = require.resolve('tileserver-gl');
-  } catch (e2) {
-    const localPath = path.join(__dirname, 'node_modules', 'tileserver-gl', 'src', 'main.js');
-    if (fs.existsSync(localPath)) {
-      tileserverScript = localPath;
+    tileserverScript = require.resolve('tileserver-gl/src/main.js');
+  } catch (e) {
+    try {
+      tileserverScript = require.resolve('tileserver-gl');
+    } catch (e2) {
+      const localPath = path.join(__dirname, 'node_modules', 'tileserver-gl', 'src', 'main.js');
+      if (fs.existsSync(localPath)) {
+        tileserverScript = localPath;
+      }
     }
   }
 }
 
-console.log(`Starting internal tileserver-gl on port ${TILESERVER_PORT}...`);
+console.log(`Starting internal tileserver-gl with args: ${cliArgs.join(' ')} on port ${TILESERVER_PORT}...`);
 
 let tileserverProcess;
 if (tileserverScript) {
