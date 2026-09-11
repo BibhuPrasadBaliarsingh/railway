@@ -19,8 +19,8 @@ console.log(`Starting internal tileserver-gl with args: ${cliArgs.join(' ')} on 
 
 let tileserverProcess;
 if (fs.existsSync('/usr/src/app/docker-entrypoint.sh')) {
-  // Use official maptiler docker-entrypoint script which sets up Xvfb and GL environment
-  tileserverProcess = spawn('/usr/src/app/docker-entrypoint.sh', cliArgs, {
+  // Use official maptiler docker-entrypoint script with bash
+  tileserverProcess = spawn('/bin/bash', ['/usr/src/app/docker-entrypoint.sh', ...cliArgs], {
     stdio: 'inherit',
     env: { ...process.env, PORT: String(TILESERVER_PORT) }
   });
@@ -72,6 +72,39 @@ tileserverProcess.on('exit', (code, signal) => {
   }
 });
 
+function proxyRequest(req, res, retriesLeft = 10) {
+  const options = {
+    hostname: '127.0.0.1',
+    port: TILESERVER_PORT,
+    path: req.url,
+    method: req.method,
+    headers: {
+      ...req.headers,
+      host: req.headers.host || `127.0.0.1:${TILESERVER_PORT}`
+    }
+  };
+
+  const proxyReq = http.request(options, (proxyRes) => {
+    res.writeHead(proxyRes.statusCode, proxyRes.headers);
+    proxyRes.pipe(res, { end: true });
+  });
+
+  proxyReq.on('error', (err) => {
+    if (retriesLeft > 0) {
+      setTimeout(() => proxyRequest(req, res, retriesLeft - 1), 500);
+    } else if (!res.headersSent) {
+      res.writeHead(502, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Tile server unavailable' }));
+    }
+  });
+
+  if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
+    req.pipe(proxyReq, { end: true });
+  } else {
+    proxyReq.end();
+  }
+}
+
 const server = http.createServer((req, res) => {
   // CORS Headers
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -96,34 +129,7 @@ const server = http.createServer((req, res) => {
   }
 
   // Reverse proxy all other routes to tileserver-gl
-  const options = {
-    hostname: '127.0.0.1',
-    port: TILESERVER_PORT,
-    path: req.url,
-    method: req.method,
-    headers: {
-      ...req.headers,
-      host: req.headers.host || `127.0.0.1:${TILESERVER_PORT}`
-    }
-  };
-
-  const proxyReq = http.request(options, (proxyRes) => {
-    res.writeHead(proxyRes.statusCode, proxyRes.headers);
-    proxyRes.pipe(res, { end: true });
-  });
-
-  proxyReq.on('error', (err) => {
-    if (!res.headersSent) {
-      res.writeHead(502, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Tile server unavailable' }));
-    }
-  });
-
-  if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
-    req.pipe(proxyReq, { end: true });
-  } else {
-    proxyReq.end();
-  }
+  proxyRequest(req, res);
 });
 
 server.listen(PORT, () => {

@@ -6,7 +6,7 @@
   },
   "data": {
     "bbsr": {
-      "mbtiles": "data/bbsr.mbtiles"
+      "mbtiles": "/data/bbsr.mbtiles"
     }
   }
 }
