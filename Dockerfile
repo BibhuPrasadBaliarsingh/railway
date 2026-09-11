@@ -5,8 +5,8 @@ WORKDIR /usr/src/app
 COPY ./data /data
 COPY ./data ./data
 COPY ./config.json ./config.json
-COPY ./server.js ./server.js
+COPY ./server.cjs ./server.cjs
 
 EXPOSE 8080
 
-CMD ["node", "server.js"]
+CMD ["node", "server.cjs"]

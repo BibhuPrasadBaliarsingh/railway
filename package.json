@@ -2,7 +2,7 @@
   "name": "bbsr-map-server",
   "version": "1.0.0",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.cjs"
   },
   "dependencies": {
     "tileserver-gl": "^4.0.0"
