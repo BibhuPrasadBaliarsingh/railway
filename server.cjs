@@ -86,7 +86,9 @@ function proxyRequest(req, res, retriesLeft = 10) {
     method: req.method,
     headers: {
       ...req.headers,
-      host: req.headers.host || `127.0.0.1:${TILESERVER_PORT}`
+      host: req.headers.host || `127.0.0.1:${TILESERVER_PORT}`,
+      'x-forwarded-host': req.headers.host || '',
+      'x-forwarded-proto': req.headers['x-forwarded-proto'] || 'https'
     }
   };
 
@@ -132,6 +134,13 @@ const server = http.createServer((req, res) => {
       }
       return res.end(JSON.stringify({ status: 'ok' }));
     }
+  }
+
+  // Handle literal placeholder requests if frontend library attempts to fetch unpopulated template URL
+  if (req.url.includes('%7Bz%7D') || req.url.includes('{z}')) {
+    const jsonUrl = req.url.replace(/\/\{z\}\/\{x\}\/\{y\}\.pbf|\/%7Bz%7D\/%7Bx%7D\/%7By%7D\.pbf/, '.json');
+    res.writeHead(302, { Location: jsonUrl });
+    return res.end();
   }
 
   // Reverse proxy all other routes to tileserver-gl
