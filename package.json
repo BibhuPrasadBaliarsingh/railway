@@ -2,9 +2,11 @@
   "name": "bbsr-map-server",
   "version": "1.0.0",
   "scripts": {
-    "start": "npx tileserver-gl --config config.json --port $PORT"
+    "start": "node server.js"
   },
   "dependencies": {
+    "bindings": "^1.5.0",
+    "express": "^4.19.2",
     "tileserver-gl": "^4.0.0"
   }
 }
