@@ -1,29 +1,11 @@
-const express = require('express');
 const http = require('http');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-const app = express();
 const PORT = process.env.PORT || 8080;
 // Use an internal port for tileserver-gl to prevent port collision with main wrapper server
 const TILESERVER_PORT = process.env.TILESERVER_PORT || (parseInt(PORT, 10) + 1);
-
-// Enable CORS headers so external monitoring services can call the endpoint seamlessly
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(204);
-  }
-  next();
-});
-
-// Fast, lightweight health-check endpoint for Render keep-alive & monitoring
-app.get('/api/health', (req, res) => {
-  res.status(200).json({ status: 'ok' });
-});
 
 // Determine configuration and executable for internal tileserver-gl process
 const configPath = path.join(__dirname, 'config.json');
@@ -75,8 +57,30 @@ tileserverProcess.on('exit', (code, signal) => {
   }
 });
 
-// Reverse proxy all other routes to tileserver-gl
-app.use((req, res) => {
+const server = http.createServer((req, res) => {
+  // CORS Headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    res.statusCode = 204;
+    return res.end();
+  }
+
+  // Health-check endpoint
+  const urlPath = req.url.split('?')[0];
+  if (urlPath === '/api/health') {
+    if (req.method === 'GET' || req.method === 'HEAD') {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      if (req.method === 'HEAD') {
+        return res.end();
+      }
+      return res.end(JSON.stringify({ status: 'ok' }));
+    }
+  }
+
+  // Reverse proxy all other routes to tileserver-gl
   const options = {
     hostname: '127.0.0.1',
     port: TILESERVER_PORT,
@@ -95,7 +99,8 @@ app.use((req, res) => {
 
   proxyReq.on('error', (err) => {
     if (!res.headersSent) {
-      res.status(502).json({ error: 'Tile server unavailable' });
+      res.writeHead(502, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Tile server unavailable' }));
     }
   });
 
@@ -106,7 +111,7 @@ app.use((req, res) => {
   }
 });
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Map server proxy listening on port ${PORT}`);
   console.log(`Health endpoint ready at GET /api/health`);
 });

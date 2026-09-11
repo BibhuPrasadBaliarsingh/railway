@@ -5,8 +5,6 @@
     "start": "node server.js"
   },
   "dependencies": {
-    "bindings": "^1.5.0",
-    "express": "^4.19.2",
     "tileserver-gl": "^4.0.0"
   }
 }
