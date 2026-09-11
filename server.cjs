@@ -8,19 +8,29 @@ const PORT = process.env.PORT || 8080;
 const TILESERVER_PORT = process.env.TILESERVER_PORT || (parseInt(PORT, 10) + 1);
 
 // Locate mbtiles file
-let mbtilesPath = 'data/bbsr.mbtiles';
-if (fs.existsSync('/data/bbsr.mbtiles')) {
-  mbtilesPath = '/data/bbsr.mbtiles';
-} else if (fs.existsSync(path.join(__dirname, 'data', 'bbsr.mbtiles'))) {
+let mbtilesPath = '/data/bbsr.mbtiles';
+if (!fs.existsSync(mbtilesPath)) {
   mbtilesPath = path.join(__dirname, 'data', 'bbsr.mbtiles');
 }
 
 const cliArgs = ['--mbtiles', mbtilesPath, '--port', String(TILESERVER_PORT)];
 
-let tileserverScript = null;
-if (fs.existsSync('/usr/src/app/src/main.js')) {
-  tileserverScript = '/usr/src/app/src/main.js';
+console.log(`Starting internal tileserver-gl with args: ${cliArgs.join(' ')} on port ${TILESERVER_PORT}...`);
+
+let tileserverProcess;
+if (fs.existsSync('/usr/src/app/docker-entrypoint.sh')) {
+  // Use official maptiler docker-entrypoint script which sets up Xvfb and GL environment
+  tileserverProcess = spawn('/usr/src/app/docker-entrypoint.sh', cliArgs, {
+    stdio: 'inherit',
+    env: { ...process.env, PORT: String(TILESERVER_PORT) }
+  });
+} else if (fs.existsSync('/usr/src/app/src/main.js')) {
+  tileserverProcess = spawn(process.execPath, ['/usr/src/app/src/main.js', ...cliArgs], {
+    stdio: 'inherit',
+    env: { ...process.env, PORT: String(TILESERVER_PORT) }
+  });
 } else {
+  let tileserverScript = null;
   try {
     tileserverScript = require.resolve('tileserver-gl/src/main.js');
   } catch (e) {
@@ -33,26 +43,23 @@ if (fs.existsSync('/usr/src/app/src/main.js')) {
       }
     }
   }
-}
 
-console.log(`Starting internal tileserver-gl with args: ${cliArgs.join(' ')} on port ${TILESERVER_PORT}...`);
-
-let tileserverProcess;
-if (tileserverScript) {
-  tileserverProcess = spawn(process.execPath, [tileserverScript, ...cliArgs], {
-    stdio: 'inherit',
-    env: { ...process.env, PORT: String(TILESERVER_PORT) }
-  });
-} else if (process.platform === 'win32') {
-  tileserverProcess = spawn('cmd.exe', ['/c', 'npx', 'tileserver-gl', ...cliArgs], {
-    stdio: 'inherit',
-    env: { ...process.env, PORT: String(TILESERVER_PORT) }
-  });
-} else {
-  tileserverProcess = spawn('tileserver-gl', cliArgs, {
-    stdio: 'inherit',
-    env: { ...process.env, PORT: String(TILESERVER_PORT) }
-  });
+  if (tileserverScript) {
+    tileserverProcess = spawn(process.execPath, [tileserverScript, ...cliArgs], {
+      stdio: 'inherit',
+      env: { ...process.env, PORT: String(TILESERVER_PORT) }
+    });
+  } else if (process.platform === 'win32') {
+    tileserverProcess = spawn('cmd.exe', ['/c', 'npx', 'tileserver-gl', ...cliArgs], {
+      stdio: 'inherit',
+      env: { ...process.env, PORT: String(TILESERVER_PORT) }
+    });
+  } else {
+    tileserverProcess = spawn('tileserver-gl', cliArgs, {
+      stdio: 'inherit',
+      env: { ...process.env, PORT: String(TILESERVER_PORT) }
+    });
+  }
 }
 
 tileserverProcess.on('error', (err) => {
