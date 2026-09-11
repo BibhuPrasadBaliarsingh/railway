@@ -7,13 +7,19 @@ const PORT = process.env.PORT || 8080;
 // Use an internal port for tileserver-gl to prevent port collision with main wrapper server
 const TILESERVER_PORT = process.env.TILESERVER_PORT || (parseInt(PORT, 10) + 1);
 
-// Locate mbtiles file
-let mbtilesPath = '/data/bbsr.mbtiles';
-if (!fs.existsSync(mbtilesPath)) {
-  mbtilesPath = path.join(__dirname, 'data', 'bbsr.mbtiles');
-}
+// Determine configuration for tileserver-gl process
+const configPath = path.join(__dirname, 'config.json');
+let cliArgs = [];
 
-const cliArgs = ['--mbtiles', mbtilesPath, '--port', String(TILESERVER_PORT)];
+if (fs.existsSync(configPath)) {
+  cliArgs = ['--config', 'config.json', '--port', String(TILESERVER_PORT)];
+} else {
+  let mbtilesPath = '/data/bbsr.mbtiles';
+  if (!fs.existsSync(mbtilesPath)) {
+    mbtilesPath = path.join(__dirname, 'data', 'bbsr.mbtiles');
+  }
+  cliArgs = ['--mbtiles', mbtilesPath, '--port', String(TILESERVER_PORT)];
+}
 
 console.log(`Starting internal tileserver-gl with args: ${cliArgs.join(' ')} on port ${TILESERVER_PORT}...`);
 
